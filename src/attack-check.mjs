@@ -3,24 +3,22 @@ import path from 'node:path';
 
 /**
  * 2단계 공격 및 보안 상태 점검 함수
- * - bundle.mjs 규격에 맞추어 1~20개의 점검 결과 배열을 반환합니다.
+ * - 각 결과 객체는 attackId, expected, observed 속성만 포함합니다.
  */
 export async function runAttackChecks() {
   const checks = [];
 
-  // 1. public/data.json 정적 파일 크기 및 빈 배열 검사
+  // 1. 공개 data.json 파일 빈 배열 검사
   try {
     const dataJsonPath = path.resolve('public/data.json');
     const dataContent = await fs.readFile(dataJsonPath, 'utf8');
     const parsed = JSON.parse(dataContent);
+    const isEmpty = Array.isArray(parsed) && parsed.length === 0;
 
     checks.push({
-      id: 'check-data-json-empty',
-      name: '공개 data.json 파일 빈 배열 검사',
-      passed: Array.isArray(parsed) && parsed.length === 0,
-      detail: Array.isArray(parsed) && parsed.length === 0 
-        ? 'data.json이 빈 배열입니다.' 
-        : 'data.json에 메모 항목이 남아있습니다.'
+      attackId: 'check-data-json-empty',
+      expected: 'data.json이 빈 배열([])이어야 합니다.',
+      observed: isEmpty ? 'data.json이 빈 배열([])입니다.' : 'data.json에 메모 데이터가 남아있습니다.'
     });
 
     // 2. 민감 가상 메모 키워드 검색
@@ -34,57 +32,49 @@ export async function runAttackChecks() {
     const leakedKeyword = sensitiveKeywords.find(keyword => dataContent.includes(keyword));
 
     checks.push({
-      id: 'check-sensitive-keyword-leak',
-      name: '정적 파일 내 민감 가상 메모 키워드 검사',
-      passed: !leakedKeyword,
-      detail: leakedKeyword 
-        ? `민감 키워드 발견: ${leakedKeyword}` 
-        : '정적 파일에 민감 키워드가 없습니다.'
+      attackId: 'check-sensitive-keyword-leak',
+      expected: '정적 파일 내 민감 키워드가 검색되지 않아야 합니다.',
+      observed: leakedKeyword ? `민감 키워드 발견: ${leakedKeyword}` : '정적 파일 내 민감 키워드가 없습니다.'
     });
   } catch (err) {
     checks.push({
-      id: 'check-data-json-missing',
-      name: '공개 data.json 존재 여부 및 접근성',
-      passed: true,
-      detail: 'data.json 파일이 없거나 접근할 수 없어 공개 메모가 노출되지 않습니다.'
+      attackId: 'check-data-json-missing',
+      expected: '공개 data.json에 메모가 노출되지 않아야 합니다.',
+      observed: 'data.json 파일이 없거나 읽을 수 없어 노출되지 않습니다.'
     });
   }
 
-  // 3. API 라우트 존재 여부 확인
+  // 3. Vercel Serverless API (/api/memos) 존재 검사
   try {
     const apiMemoPath = path.resolve('api/memos.js');
     await fs.access(apiMemoPath);
     checks.push({
-      id: 'check-api-memos-exists',
-      name: 'Vercel Serverless API (/api/memos) 존재 검사',
-      passed: true,
-      detail: 'api/memos.js 파일이 정상 위치에 존재합니다.'
+      attackId: 'check-api-memos-exists',
+      expected: 'api/memos.js 파일이 존재해야 합니다.',
+      observed: 'api/memos.js 파일이 정상 존재합니다.'
     });
   } catch (err) {
     checks.push({
-      id: 'check-api-memos-exists',
-      name: 'Vercel Serverless API (/api/memos) 존재 검사',
-      passed: false,
-      detail: 'api/memos.js 파일을 찾을 수 없습니다.'
+      attackId: 'check-api-memos-exists',
+      expected: 'api/memos.js 파일이 존재해야 합니다.',
+      observed: 'api/memos.js 파일을 찾을 수 없습니다.'
     });
   }
 
-  // 4. aleph.json 보존 여부 검사
+  // 4. aleph.json 파일 보존 검사
   try {
     const alephJsonPath = path.resolve('public/aleph.json');
     await fs.access(alephJsonPath);
     checks.push({
-      id: 'check-aleph-json-exists',
-      name: 'public/aleph.json 파일 존재 및 보존 검사',
-      passed: true,
-      detail: 'aleph.json 파일이 정상 보존되어 있습니다.'
+      attackId: 'check-aleph-json-exists',
+      expected: 'public/aleph.json 파일이 생성 및 보존되어야 합니다.',
+      observed: 'aleph.json 파일이 정상 보존되어 있습니다.'
     });
   } catch (err) {
     checks.push({
-      id: 'check-aleph-json-exists',
-      name: 'public/aleph.json 파일 존재 및 보존 검사',
-      passed: false,
-      detail: 'aleph.json 파일이 손실되었습니다.'
+      attackId: 'check-aleph-json-exists',
+      expected: 'public/aleph.json 파일이 생성 및 보존되어야 합니다.',
+      observed: 'aleph.json 파일이 손실되었습니다.'
     });
   }
 
