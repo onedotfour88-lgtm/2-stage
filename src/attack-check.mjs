@@ -2,9 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * 단계별 공격 및 보안 상태 점검 함수
+ * 2단계 공격 및 보안 상태 점검 함수
  */
-export async function attackCheck(step = 2) {
+export async function runAttackChecks(step = 2) {
   const results = {
     step,
     passed: true,
@@ -66,4 +66,4 @@ export async function attackCheck(step = 2) {
   }
 }
 
-export default attackCheck;
+export default runAttackChecks;
